@@ -1,9 +1,8 @@
 from django.db import models
 from django.db.models import JSONField
-
+from django.db.models import Q
 
 class Country(models.Model):
-    """Model to store country information"""
     name = models.CharField(max_length=255)  # Common name
     official_name = models.CharField(max_length=255)
     cca2 = models.CharField(max_length=2, unique=True)
@@ -29,6 +28,12 @@ class Country(models.Model):
     class Meta:
         ordering = ['name']
         verbose_name_plural = 'Countries'
+        # Adding indexes to frequently filtered fields
+        indexes = [
+            models.Index(fields=['region']),
+            models.Index(fields=['languages']),
+            models.Index(fields=['borders']),
+        ]
         
     def __str__(self):
         return self.name
@@ -44,3 +49,25 @@ class Country(models.Model):
         if self.timezones and len(self.timezones) > 0:
             return self.timezones[0]
         return "N/A"
+    
+    @classmethod
+    def get_countries_by_language(cls, language):
+        """Return countries that speak the given language"""
+        return cls.objects.filter(languages__contains={language.lower(): True})
+    
+    @classmethod
+    def get_countries_in_same_region(cls, region):
+        """Return countries in the same region"""
+        return cls.objects.filter(region=region)
+    
+    @classmethod
+    def search_countries(cls, query):
+        """Search for countries by name (partial match)"""
+        return cls.objects.filter(
+            Q(name__icontains=query) | Q(official_name__icontains=query)
+        )
+    
+    @classmethod
+    def get_countries_with_borders(cls, borders):
+        """Return countries that share borders with the given list of countries"""
+        return cls.objects.filter(borders__overlap=borders)
