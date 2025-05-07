@@ -1,18 +1,15 @@
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Q
-from django.http import JsonResponse
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from .models import Country
 from .serializers import CountrySerializer, CountryListSerializer, CountryCreateUpdateSerializer
-
+from django.core.paginator import Paginator
 
 class CountryViewSet(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     queryset = Country.objects.all()
-    # permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'official_name', 'cca2', 'cca3', 'region', 'subregion']
     
@@ -30,47 +27,52 @@ class CountryViewSet(viewsets.ModelViewSet):
             region=country.region
         ).exclude(id=country.id)
         
-        serializer = CountryListSerializer(same_region_countries, many=True)
-        return Response(serializer.data)
+        # Pass data to template
+        return render(request, 'countries/same_region.html', {
+            'country': country,
+            'same_region_countries': same_region_countries
+        })
     
     @action(detail=False, methods=['get'])
     def by_language(self, request):
         language = request.query_params.get('language', None)
-        if not language:
-            return Response(
-                {"error": "Language parameter is required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Filter countries with the specified language
+        error = None
         countries = []
-        for country in Country.objects.all():
-            if language.lower() in map(str.lower, country.languages.values()):
-                countries.append(country)
         
-        serializer = CountryListSerializer(countries, many=True)
-        return Response(serializer.data)
+        if not language:
+            error = "Language parameter is required"
+        else:
+            for country in Country.objects.all():
+                if language.lower() in map(str.lower, country.languages.values()):
+                    countries.append(country)
+        
+        return render(request, 'countries/by_language.html', {
+            'language': language,
+            'countries': countries,
+            'error': error
+        })
     
     @action(detail=False, methods=['get'])
     def search(self, request):
-        """Search for countries by name (partial match)"""
         query = request.query_params.get('q', '')
+        error = None
+        countries = []
+        
         if not query:
-            return Response(
-                {"error": "Search query parameter 'q' is required"},
-                status=status.HTTP_400_BAD_REQUEST
+            error = "Search query parameter 'q' is required"
+        else:
+            countries = Country.objects.filter(
+                Q(name__icontains=query) | 
+                Q(official_name__icontains=query)
             )
         
-        countries = Country.objects.filter(
-            Q(name__icontains=query) | 
-            Q(official_name__icontains=query)
-        )
-        
-        serializer = CountryListSerializer(countries, many=True)
-        return Response(serializer.data)
+        return render(request, 'countries/search_results.html', {
+            'query': query,
+            'countries': countries,
+            'error': error
+        })
 
 
-# API endpoint to return country list (using query parameters for search)
 def country_list_view(request):
     search_query = request.GET.get('q', '')
 
@@ -82,40 +84,24 @@ def country_list_view(request):
     else:
         countries = Country.objects.all()
 
-    countries_data = list(countries.values('id', 'name', 'official_name', 'region'))
-    
-    return JsonResponse({
+    # ✅ Add pagination
+    paginator = Paginator(countries, 10)  # 10 countries per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'countries/country_list.html', {
         'search_query': search_query,
-        'countries': countries_data
+        'countries': page_obj  # Pass paginated object
     })
 
 
-# API endpoint to return country details with same region countries
+
 def country_detail_view(request, country_id):
     country = get_object_or_404(Country, id=country_id)
 
-    country_data = {
-        'id': country.id,
-        'name': country.name,
-        'official_name': country.official_name,
-        'region': country.region,
-        'subregion': country.subregion,
-        'population': country.population,
-        'flag_url': country.flag,
-        'languages': country.languages,
-        'currencies': country.currencies,
-        'borders': country.borders,
-        'timezones': country.timezones
-    }
+    same_region_countries = Country.objects.filter(region=country.region).exclude(id=country.id)
 
-    # Get countries in the same region, excluding the current country
-    same_region_countries = list(
-        Country.objects.filter(region=country.region)
-        .exclude(id=country.id)
-        .values('id', 'name', 'flag')
-    )
-
-    return JsonResponse({
-        'country': country_data,
+    return render(request, 'countries/country_detail.html', {
+        'country': country,
         'same_region_countries': same_region_countries
     })

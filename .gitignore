@@ -1,2 +1,3 @@
 countryvenv/*
 __pycahche__/*
+.env

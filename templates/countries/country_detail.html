@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}{{ country.name }} - Country Details{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'country_list' %}" class="btn btn-secondary mb-3">← Back to Countries</a>
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <div class="d-flex align-items-center">
+                <img src="{{ country.flag }}" alt="{{ country.name }} flag" class="me-3 country-flag">
+                <h1 class="mb-0">{{ country.name }}</h1>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h3>Basic Information</h3>
+                    <table class="table">
+                        <tbody>
+                            <tr>
+                                <th>Official Name:</th>
+                                <td>{{ country.official_name }}</td>
+                            </tr>
+                            <tr>
+                                <th>Country Codes:</th>
+                                <td>{{ country.cca2 }} / {{ country.cca3 }}</td>
+                            </tr>
+                            <tr>
+                                <th>Region:</th>
+                                <td>{{ country.region }}</td>
+                            </tr>
+                            <tr>
+                                <th>Subregion:</th>
+                                <td>{{ country.subregion|default:"Not specified" }}</td>
+                            </tr>
+                            <tr>
+                                <th>Population:</th>
+                                <td>{{ country.population|intcomma }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h3>More Details</h3>
+                    <table class="table">
+                        <tbody>
+                            <tr>
+                                <th>Capital:</th>
+                                <td>
+                                    {% if country.capitals %}
+                                        {{ country.capitals|join:", " }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Languages:</th>
+                                <td>
+                                    {% if country.languages %}
+                                        {{ country.languages.values|join:", " }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Timezones:</th>
+                                <td>
+                                    {% if country.timezones %}
+                                        <ul class="mb-0 ps-3">
+                                            {% for timezone in country.timezones|slice:":5" %}
+                                                <li>{{ timezone }}</li>
+                                            {% endfor %}
+                                            {% if country.timezones|length > 5 %}
+                                                <li>And {{ country.timezones|length|add:"-5" }} more...</li>
+                                            {% endif %}
+                                        </ul>
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Currencies:</th>
+                                <td>
+                                    {% if country.currencies %}
+                                        <ul class="mb-0 ps-3">
+                                            {% for code, currency in country.currencies.items %}
+                                                <li>{{ currency.name }} ({{ code }})</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <h3>Countries in the Same Region</h3>
+                {% if same_region_countries %}
+                    <div class="row">
+                        {% for related_country in same_region_countries|slice:":8" %}
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="card h-100">
+                                    <img src="{{ related_country.flag }}" class="card-img-top p-2" alt="{{ related_country.name }} flag">
+                                    <div class="card-body">
+                                        <h5 class="card-title">{{ related_country.name }}</h5>
+                                        <p class="card-text">Capital: {{ related_country.get_capital }}</p>
+                                        <a href="{% url 'country_detail' related_country.id %}" class="btn btn-sm btn-primary">View</a>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        
+                        {% if same_region_countries|length > 8 %}
+                            <div class="col-12 mt-2">
+                                <p class="text-muted">And {{ same_region_countries|length|add:"-8" }} more countries in this region.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">No other countries in this region.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

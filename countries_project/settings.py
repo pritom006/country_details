@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'countries_api',
     'rest_framework',
+    'django.contrib.humanize'
 ]
 
 MIDDLEWARE = [
@@ -44,7 +45,7 @@ ROOT_URLCONF = 'countries_project.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -69,16 +70,7 @@ WSGI_APPLICATION = 'countries_project.wsgi.application'
 #     }
 # }
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'country',
-#         'USER': 'postgres',
-#         'PASSWORD': '1234',
-#         'HOST': 'localhost',  
-#         'PORT': '5432',
-#     }
-# }
+
 
 DATABASES = {
     'default': {
