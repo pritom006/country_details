@@ -1,14 +1,27 @@
-from django.shortcuts import render, get_object_or_404
-from django.db.models import Q
-from rest_framework import viewsets, status, filters
-from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
-from .models import Country
-from .serializers import CountrySerializer, CountryListSerializer, CountryCreateUpdateSerializer
+from django.contrib import messages
+from django.contrib.auth import authenticate, login
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.views import LogoutView
+from django.contrib.messages.views import SuccessMessageMixin
 from django.core.paginator import Paginator
+from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect, render
+
+from rest_framework import filters, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+
+from .models import Country
+from .serializers import (
+    CountryCreateUpdateSerializer,
+    CountryListSerializer,
+    CountrySerializer,
+)
+
 
 class CountryViewSet(viewsets.ModelViewSet):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     queryset = Country.objects.all()
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'official_name', 'cca2', 'cca3', 'region', 'subregion']
@@ -73,6 +86,7 @@ class CountryViewSet(viewsets.ModelViewSet):
         })
 
 
+@login_required
 def country_list_view(request):
     search_query = request.GET.get('q', '')
 
@@ -84,18 +98,18 @@ def country_list_view(request):
     else:
         countries = Country.objects.all()
 
-    # ✅ Add pagination
-    paginator = Paginator(countries, 10)  # 10 countries per page
+    # Add pagination with 10 objects per page
+    paginator = Paginator(countries, 10)  
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'countries/country_list.html', {
         'search_query': search_query,
-        'countries': page_obj  # Pass paginated object
+        'countries': page_obj  
     })
 
 
-
+@login_required
 def country_detail_view(request, country_id):
     country = get_object_or_404(Country, id=country_id)
 
@@ -105,3 +119,39 @@ def country_detail_view(request, country_id):
         'country': country,
         'same_region_countries': same_region_countries
     })
+
+
+def register_view(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            username = form.cleaned_data.get('username')
+            password = form.cleaned_data.get('password1')
+            user = authenticate(username=username, password=password)
+            login(request, user)
+            messages.success(request, f"Account created for {username}! You are now logged in.")
+            return redirect('country_list')
+    else:
+        form = UserCreationForm()
+    return render(request, 'registration/register.html', {'form': form})
+
+def login_view(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            messages.success(request, f"Welcome back, {username}!")
+            # Redirect to a success page
+            next_url = request.GET.get('next', 'country_list')
+            return redirect(next_url)
+        else:
+            messages.error(request, "Invalid username or password.")
+    return render(request, 'registration/login.html')
+
+
+class CustomLogoutView(SuccessMessageMixin, LogoutView):
+    next_page = 'login'
+    success_message = "You have successfully logged out."
